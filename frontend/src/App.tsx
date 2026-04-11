@@ -1,5 +1,5 @@
 /* HokieAssist main UI — generative AI tools assisted with layout/speech wiring; see docs/AI_USAGE_LOG.md */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Chat from './components/Chat'
 import MicButton from './components/MicButton'
 import { askQuestion } from './api'
@@ -34,7 +34,7 @@ function App() {
     }
   }, [])
 
-  const addMessage = (text: string, sender: 'user' | 'assistant') => {
+  const addMessage = useCallback((text: string, sender: 'user' | 'assistant') => {
     const newMessage: Message = {
       id: Date.now().toString(),
       text,
@@ -42,11 +42,11 @@ function App() {
       timestamp: new Date()
     }
     setMessages(prev => [...prev, newMessage])
-  }
+  }, [])
 
   const [isSpeaking, setIsSpeaking] = useState(false)
 
-  const speakText = (text: string) => {
+  const speakText = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       // Stop any current speech
       window.speechSynthesis.cancel()
@@ -73,7 +73,7 @@ function App() {
       
       window.speechSynthesis.speak(utterance)
     }
-  }
+  }, [])
 
   const stopSpeaking = () => {
     if ('speechSynthesis' in window) {
@@ -83,13 +83,14 @@ function App() {
     }
   }
 
-  const handleVoiceInput = async (transcript: string) => {
+  const handleVoiceInput = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return
 
     // Don't process error messages or system messages
-    if (transcript.includes("I didn't hear anything") || 
+    if (transcript.includes("I didn't hear anything") ||
         transcript.includes("Microphone access") ||
         transcript.includes("Speech recognition error") ||
+        transcript.includes("Network error") ||
         transcript.includes("I can help you with")) {
       return
     }
@@ -101,13 +102,13 @@ function App() {
     try {
       // Send to backend
       const response = await askQuestion(transcript)
-      
+
       // Add assistant response
       addMessage(response.answer, 'assistant')
-      
+
       // Speak the response
       speakText(response.answer)
-      
+
     } catch (error) {
       console.error('Error processing question:', error)
       const errorMessage = 'Sorry, I encountered an error processing your request. Please try again.'
@@ -116,12 +117,11 @@ function App() {
     } finally {
       setIsProcessing(false)
     }
-  }
+  }, [addMessage, speakText])
 
-  const toggleListening = () => {
-    console.log('🔄 toggleListening called! Current isListening:', isListening, '→ New state:', !isListening)
-    setIsListening(!isListening)
-  }
+  const toggleListening = useCallback(() => {
+    setIsListening(prev => !prev)
+  }, [])
 
   const handleTextSubmit = async () => {
     if (!textInput.trim()) return
