@@ -4,7 +4,7 @@ See IMPLEMENTATION.md and docs/AI_USAGE_LOG.md for milestone and AI-disclosure n
 Purpose:
 - Central API layer that routes user queries to the correct service
 - Handles transit, dining, clubs, and general AI queries
-- Integrates NLU + external APIs (Google Maps, BT, scrapers)
+- Integrates NLU + external APIs (Google Maps, BT, scrapers)                                  
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
