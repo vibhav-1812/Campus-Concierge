@@ -57,17 +57,17 @@ function App() {
       utterance.volume = 0.8
       
       utterance.onstart = () => {
-        console.log('🔊 AI started speaking')
+        console.log('AI started speaking')
         setIsSpeaking(true)
       }
       
       utterance.onend = () => {
-        console.log('🔇 AI finished speaking')
+        console.log('AI finished speaking')
         setIsSpeaking(false)
       }
       
       utterance.onerror = () => {
-        console.log('❌ Speech synthesis error')
+        console.log('Speech synthesis error')
         setIsSpeaking(false)
       }
       
@@ -77,7 +77,7 @@ function App() {
 
   const stopSpeaking = () => {
     if ('speechSynthesis' in window) {
-      console.log('🛑 Manually stopping AI speech')
+      console.log('Manually stopping AI speech')
       window.speechSynthesis.cancel()
       setIsSpeaking(false)
     }
@@ -170,7 +170,7 @@ function App() {
               <div className="text-right text-white/80">
                 <div className="text-sm">Status</div>
                 <div className="text-xs">
-                  {isSpeaking ? '🔊 AI Speaking...' : isListening ? '🎤 Listening...' : isProcessing ? '🤔 Thinking...' : '✅ Ready'}
+                  {isSpeaking ? 'AI Speaking...' : isListening ? 'Listening...' : isProcessing ? 'Thinking...' : 'Ready'}
                 </div>
               </div>
             </div>
@@ -281,7 +281,6 @@ function App() {
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <div className="text-2xl mb-2">🍽️</div>
             <h3 className="font-semibold text-gray-800 mb-2">Dining</h3>
             <p className="text-sm text-gray-600 mb-3">
               Find open dining halls and meal options
@@ -298,7 +297,6 @@ function App() {
           </div>
           
           <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <div className="text-2xl mb-2">🚌</div>
             <h3 className="font-semibold text-gray-800 mb-2">Transportation</h3>
             <p className="text-sm text-gray-600 mb-3">
               Check bus schedules and routes
@@ -315,7 +313,6 @@ function App() {
           </div>
           
           <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <div className="text-2xl mb-2">🎉</div>
             <h3 className="font-semibold text-gray-800 mb-2">Events</h3>
             <p className="text-sm text-gray-600 mb-3">
               Discover club events and activities

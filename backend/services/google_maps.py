@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import googlemaps
 from dotenv import load_dotenv
 
@@ -8,7 +8,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _GOOGLE_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
-_client: Optional[googlemaps.Client] = googlemaps.Client(key=_GOOGLE_KEY) if _GOOGLE_KEY else None
+_client: Optional[googlemaps.Client] = None
+if _GOOGLE_KEY:
+    try:
+        _client = googlemaps.Client(key=_GOOGLE_KEY)
+    except ValueError:
+        _client = None
 
 def ensure_client() -> googlemaps.Client:
     if not _client:
@@ -32,8 +37,11 @@ def geocode_place(name: str) -> Optional[Dict[str, Any]]:
         "place_id": r.get("place_id"),
     }
 
-def directions_transit(origin: str | Tuple[float, float], destination: str | Tuple[float, float],
-                       departure_time: Optional[datetime] = None) -> Dict[str, Any]:
+def directions_transit(
+    origin: Union[str, Tuple[float, float]],
+    destination: Union[str, Tuple[float, float]],
+    departure_time: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """
     Get multimodal (transit + walk) directions. Returns a structured plan.
     """

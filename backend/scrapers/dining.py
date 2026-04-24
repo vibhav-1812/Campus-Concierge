@@ -61,10 +61,10 @@ async def get_dining_halls() -> str:
         result = f"Current time: {current_time.strftime('%I:%M %p')}\n\n"
         
         if open_halls:
-            result += f"🟢 Currently Open: {', '.join(open_halls)}\n\n"
+            result += f"Currently Open: {', '.join(open_halls)}\n\n"
         
         if closed_halls:
-            result += f"🔴 Currently Closed: {', '.join(closed_halls)}\n\n"
+            result += f"Currently Closed: {', '.join(closed_halls)}\n\n"
         
         result += "Detailed Hours:\n"
         for hall, info in dining_halls.items():

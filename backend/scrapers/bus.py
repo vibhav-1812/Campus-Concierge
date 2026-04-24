@@ -45,16 +45,16 @@ async def get_bus_times() -> str:
             bus_routes[route]['next'] = next_arrival.strftime('%I:%M %p')
         
         # Format response
-        result = f"🚌 Blacksburg Transit - Current Time: {current_time.strftime('%I:%M %p')}\n\n"
+        result = f"Blacksburg Transit - Current Time: {current_time.strftime('%I:%M %p')}\n\n"
         result += "Next Arrivals:\n\n"
         
         for route, info in bus_routes.items():
-            result += f"📍 {route}:\n"
+            result += f"{route}:\n"
             result += f"   Next Bus: {info['next']}\n"
             result += f"   Frequency: {info['frequency']}\n\n"
         
-        result += "📱 For real-time updates, visit: https://ridebt.org/\n"
-        result += "🔄 Bus tracker available on the BT website"
+        result += "For real-time updates, visit: https://ridebt.org/\n"
+        result += "Bus tracker available on the BT website"
         
         return result
         
@@ -307,7 +307,7 @@ def find_nearest_stop(location: str) -> str:
     try:
         # First try to match against known campus places
         location_lower = location.lower().strip()
-        # print(f"🔍 Finding nearest stop for: '{location}'")
+        # print(f"Finding nearest stop for: '{location}'")
         
         # Enhanced matching logic
         for stop_id, stop_info in RIDEBT_STOPS.items():
@@ -315,12 +315,12 @@ def find_nearest_stop(location: str) -> str:
             
             # Direct name match
             if stop_name_lower == location_lower:
-                # print(f"✅ Direct match: {location} → {stop_id}")
+                # print(f"Direct match: {location} → {stop_id}")
                 return stop_id
             
             # Partial name match
             if stop_name_lower in location_lower or location_lower in stop_name_lower:
-                # print(f"✅ Partial match: {location} → {stop_id}")
+                # print(f"Partial match: {location} → {stop_id}")
                 return stop_id
             
             # Word-based matching (more strict)
@@ -331,12 +331,12 @@ def find_nearest_stop(location: str) -> str:
             if location_words and stop_words:
                 main_word = list(location_words)[0]  # First word
                 if main_word in stop_words:
-                    # print(f"✅ Word match: {location} → {stop_id}")
+                    # print(f"Word match: {location} → {stop_id}")
                     return stop_id
             
             # If more than 70% of words match (increased threshold)
             if len(location_words.intersection(stop_words)) >= max(1, len(location_words) * 0.7):
-                # print(f"✅ Word match: {location} → {stop_id}")
+                # print(f"Word match: {location} → {stop_id}")
                 return stop_id
         
         # Special case matching for common variations and addresses
@@ -355,7 +355,7 @@ def find_nearest_stop(location: str) -> str:
         
         for keyword, stop_id in special_matches.items():
             if keyword in location_lower:
-                # print(f"✅ Special match: {location} → {stop_id}")
+                # print(f"Special match: {location} → {stop_id}")
                 return stop_id
         
         # If no direct match, use geocoding and distance calculation
@@ -378,14 +378,14 @@ def find_nearest_stop(location: str) -> str:
                     nearest_stop = stop_id
             
             if nearest_stop:
-                # print(f"✅ Geocoded match: {location} → {nearest_stop}")
+                # print(f"Geocoded match: {location} → {nearest_stop}")
                 return nearest_stop
         
-        # print(f"⚠️ No match found for {location}, using default: squires")
+        # print(f"No match found for {location}, using default: squires")
         return "squires"  # Default fallback
         
     except Exception as e:
-        # print(f"❌ Error finding nearest stop for {location}: {e}")
+        # print(f"Error finding nearest stop for {location}: {e}")
         return "squires"  # Safe fallback
 
 async def get_live_bus_schedule(route_name: str = None, origin: str = None) -> Dict[str, Any]:
@@ -419,10 +419,10 @@ async def get_live_bus_schedule(route_name: str = None, origin: str = None) -> D
                 
                 return {
                     "answer": f"{route_info['name']} Schedule:\n"
-                             f"🚌 Next bus: {next_arrival.strftime('%I:%M %p')} (in {minutes_until_next} minutes)\n"
-                             f"🚌 Following bus: {following_arrival.strftime('%I:%M %p')}\n"
-                             f"📍 Nearest stop: {RIDEBT_STOPS.get(nearest_stop, {}).get('name', nearest_stop)}\n"
-                             f"⏱️ Frequency: Every {frequency} minutes",
+                             f"Next bus: {next_arrival.strftime('%I:%M %p')} (in {minutes_until_next} minutes)\n"
+                             f"Following bus: {following_arrival.strftime('%I:%M %p')}\n"
+                             f"Nearest stop: {RIDEBT_STOPS.get(nearest_stop, {}).get('name', nearest_stop)}\n"
+                             f"Frequency: Every {frequency} minutes",
                     "sources": ["https://ridebt.org/", "https://maps.google.com"]
                 }
         
@@ -434,7 +434,7 @@ async def get_live_bus_schedule(route_name: str = None, origin: str = None) -> D
         
         if active_routes:
             return {
-                "answer": f"Active bus routes right now:\n" + "\n".join(f"🚌 {route}" for route in active_routes),
+                "answer": f"Active bus routes right now:\n" + "\n".join(f"- {route}" for route in active_routes),
                 "sources": ["https://ridebt.org/"]
             }
         else:
@@ -495,7 +495,7 @@ async def get_bus_eta_for_location(origin: str, route_name: str = None) -> Dict[
             
             # Check if route is operating
             if current_hour < route_info["operating_hours"]["start"] or current_hour >= route_info["operating_hours"]["end"]:
-                results.append(f"🚌 {route_id}: Not operating (runs {route_info['operating_hours']['start']}:00 AM - {route_info['operating_hours']['end']}:00 PM)")
+                results.append(f"{route_id}: Not operating (runs {route_info['operating_hours']['start']}:00 AM - {route_info['operating_hours']['end']}:00 PM)")
                 continue
             
             frequency = route_info["frequency"]
@@ -503,11 +503,11 @@ async def get_bus_eta_for_location(origin: str, route_name: str = None) -> Dict[
             minutes_until_next = frequency - (current_minute % frequency)
             next_arrival = current_time + timedelta(minutes=minutes_until_next)
             
-            results.append(f"🚌 {route_id}: {next_arrival.strftime('%I:%M %p')} (in {minutes_until_next} minutes)")
+            results.append(f"{route_id}: {next_arrival.strftime('%I:%M %p')} (in {minutes_until_next} minutes)")
         
         if results:
             answer = f"Next buses at {nearest_stop['name']}:\n" + "\n".join(results)
-            answer += f"\n\n📍 You are nearest to: {nearest_stop['name']}"
+            answer += f"\n\nYou are nearest to: {nearest_stop['name']}"
         else:
             answer = f"No buses currently operating near {nearest_stop['name']}."
         
@@ -559,7 +559,7 @@ async def enhanced_next_bus_to(destination: str, origin: str = None, bus_route: 
                 minutes_until_next = frequency - (current_time.minute % frequency)
                 next_arrival = current_time + timedelta(minutes=minutes_until_next)
                 
-                schedule_info.append(f"🚌 {route_id}: {next_arrival.strftime('%I:%M %p')} (every {frequency} min)")
+                schedule_info.append(f"{route_id}: {next_arrival.strftime('%I:%M %p')} (every {frequency} min)")
         
         if schedule_info:
             dest_stop_name = RIDEBT_STOPS.get(destination_stop, {}).get("name", destination)
@@ -584,8 +584,8 @@ async def get_bus_schedule_for_route(origin: str, destination: str) -> str:
         origin_stop = find_nearest_stop(origin)
         dest_stop = find_nearest_stop(destination)
         
-        # print(f"🔍 Bus Schedule Debug - Origin: {origin} → {origin_stop}")
-        # print(f"🔍 Bus Schedule Debug - Destination: {destination} → {dest_stop}")
+        # print(f"Bus Schedule Debug - Origin: {origin} → {origin_stop}")
+        # print(f"Bus Schedule Debug - Destination: {destination} → {dest_stop}")
         
         origin_stop_name = RIDEBT_STOPS.get(origin_stop, {}).get("name", origin)
         dest_stop_name = RIDEBT_STOPS.get(dest_stop, {}).get("name", destination)
@@ -594,7 +594,7 @@ async def get_bus_schedule_for_route(origin: str, destination: str) -> str:
         serving_routes = []
         for route_id, route_info in BUS_ROUTES.items():
             if origin_stop in route_info["stops"] and dest_stop in route_info["stops"]:
-                # print(f"✅ Found direct route: {route_id} serves both {origin_stop} and {dest_stop}")
+                # print(f"Found direct route: {route_id} serves both {origin_stop} and {dest_stop}")
                 serving_routes.append((route_id, route_info))
         
         if not serving_routes:
@@ -624,14 +624,14 @@ async def get_bus_schedule_for_route(origin: str, destination: str) -> str:
             following_arrival = next_arrival + timedelta(minutes=frequency)
             
             schedule_info.append(
-                f"   🚌 {route_id} ({route_info['name']}):\n"
+                f"   {route_id} ({route_info['name']}):\n"
                 f"      Next bus: {next_arrival.strftime('%I:%M %p')} (in {minutes_until_next} min)\n"
                 f"      Following: {following_arrival.strftime('%I:%M %p')}\n"
                 f"      Frequency: Every {frequency} minutes"
             )
         
         if schedule_info:
-            result = f"📍 From {origin_stop_name} to {dest_stop_name}:\n"
+            result = f"From {origin_stop_name} to {dest_stop_name}:\n"
             result += "\n".join(schedule_info)
             return result
         else:
@@ -688,12 +688,12 @@ async def enhanced_plan_quickest_route(origin_name: str, destination_name: str, 
             # If user specifically asked for bus, only show bus options
             if bus_info and "No bus routes serve" not in bus_info and "No buses currently operating" not in bus_info:
                 return {
-                    "answer": f"🚌 Bus Routes from {origin_name} to {destination_name}:\n\n{bus_info}",
+                    "answer": f"Bus Routes from {origin_name} to {destination_name}:\n\n{bus_info}",
                     "sources": ["https://ridebt.org/live-map", "https://maps.google.com"]
                 }
             else:
                 return {
-                    "answer": f"🚌 No direct bus routes available from {origin_name} to {destination_name}.\n\nConsider walking or using a combination of bus and walking.",
+                    "answer": f"No direct bus routes available from {origin_name} to {destination_name}.\n\nConsider walking or using a combination of bus and walking.",
                     "sources": ["https://ridebt.org/", "https://maps.google.com"]
                 }
         
@@ -705,7 +705,7 @@ async def enhanced_plan_quickest_route(origin_name: str, destination_name: str, 
         
         # Enhance the answer with bus schedule info
         if bus_info and "No bus routes serve" not in bus_info:
-            enhanced_answer = enhanced_walking + f"\n\n🚌 Bus Schedule Information:\n{bus_info}"
+            enhanced_answer = enhanced_walking + f"\n\nBus Schedule Information:\n{bus_info}"
         else:
             enhanced_answer = enhanced_walking
         
@@ -794,9 +794,9 @@ async def get_enhanced_bus_info_with_live_data(route_id: Optional[str] = None, l
             bus_info = live_data["buses"][route_id.upper()]
             
             if bus_info["status"] == "Not operating":
-                return f"🚌 {route_id.upper()} ({BUS_ROUTES[route_id.upper()]['name']}) is not currently operating.\nOperating hours: {bus_info['operating_hours']}"
+                return f"{route_id.upper()} ({BUS_ROUTES[route_id.upper()]['name']}) is not currently operating.\nOperating hours: {bus_info['operating_hours']}"
             
-            result = f"🚌 {route_id.upper()} ({BUS_ROUTES[route_id.upper()]['name']}) - Live Status\n"
+            result = f"{route_id.upper()} ({BUS_ROUTES[route_id.upper()]['name']}) - Live Status\n"
             result += f"Status: {bus_info['status']}\n"
             result += f"Next departure: {bus_info['next_departure']} (in {bus_info['minutes_until_next']} minutes)\n"
             result += f"Frequency: {bus_info['frequency']}\n"
@@ -806,12 +806,12 @@ async def get_enhanced_bus_info_with_live_data(route_id: Optional[str] = None, l
             if live_data.get("alerts"):
                 for alert in live_data["alerts"]:
                     if route_id.upper() in alert.get("routes_affected", []):
-                        result += f"\n⚠️ Alert: {alert['message']}"
+                        result += f"\nAlert: {alert['message']}"
             
             return result
         
         # General live status for all routes
-        result = "🚌 Live Bus Status - Blacksburg Transit\n"
+        result = "Live Bus Status - Blacksburg Transit\n"
         result += f"Last updated: {datetime.now().strftime('%I:%M %p')}\n\n"
         
         operating_routes = [route for route, info in live_data.get("buses", {}).items() if info["status"] == "Operating"]
@@ -828,11 +828,11 @@ async def get_enhanced_bus_info_with_live_data(route_id: Optional[str] = None, l
         
         # Add service alerts
         if live_data.get("alerts"):
-            result += "\n⚠️ Service Alerts:\n"
+            result += "\nService Alerts:\n"
             for alert in live_data["alerts"]:
                 result += f"  • {alert['message']}\n"
         
-        result += f"\n📱 For real-time tracking, visit: https://ridebt.org/live-map"
+        result += f"\nFor real-time tracking, visit: https://ridebt.org/live-map"
         
         return result
         

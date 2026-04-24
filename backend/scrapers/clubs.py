@@ -63,16 +63,16 @@ async def get_club_events() -> str:
         ]
         
         # Format response
-        result = f"🎉 Upcoming Club Events - {current_date.strftime('%A, %B %d, %Y')}\n\n"
+        result = f"Upcoming Club Events - {current_date.strftime('%A, %B %d, %Y')}\n\n"
         
         for i, event in enumerate(events, 1):
-            result += f"{i}. 📅 {event['name']}\n"
+            result += f"{i}. {event['name']}\n"
             result += f"   Date: {event['date']} at {event['time']}\n"
             result += f"   Location: {event['location']}\n"
             result += f"   Details: {event['description']}\n\n"
         
-        result += "🔗 Find more events at: https://gobblerconnect.vt.edu/\n"
-        result += "📱 Download the Gobbler Connect app for notifications!"
+        result += "Find more events at: https://gobblerconnect.vt.edu/\n"
+        result += "Download the Gobbler Connect app for notifications!"
         
         return result
         

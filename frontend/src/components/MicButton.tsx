@@ -52,7 +52,7 @@ const MicButton: React.FC<MicButtonProps> = ({
     instance.maxAlternatives = 1
 
     instance.onstart = () => {
-      console.log('🎤 Speech recognition started')
+      console.log('Speech recognition started')
       setIsInitializing(false)
       isRecognitionActive.current = true
       networkRetryCount.current = 0
@@ -130,7 +130,7 @@ const MicButton: React.FC<MicButtonProps> = ({
       if (manualStop.current) {
         const accumulatedText = (recognitionRef.current as any)?.accumulatedTranscript || ''
         if (accumulatedText.trim()) {
-          console.log('📤 Sending transcript:', accumulatedText)
+          console.log('Sending transcript:', accumulatedText)
           onTranscriptRef.current(accumulatedText.trim())
           ;(recognitionRef.current as any).accumulatedTranscript = ''
         } else {
@@ -139,7 +139,7 @@ const MicButton: React.FC<MicButtonProps> = ({
         manualStop.current = false
       } else if (isListeningRef.current) {
         // Browser timed out naturally — restart for continuous recording
-        console.log('🔄 Restarting recognition for continuous recording')
+        console.log('Restarting recognition for continuous recording')
         setTimeout(() => {
           if (isListeningRef.current && recognitionRef.current && !isRecognitionActive.current && !manualStop.current) {
             try {
@@ -204,7 +204,7 @@ const MicButton: React.FC<MicButtonProps> = ({
     if (disabled) return
 
     if (isListening) {
-      console.log('🛑 Manually stopping speech recognition...')
+      console.log('Manually stopping speech recognition...')
       manualStop.current = true
 
       if (timeoutRef.current) {
@@ -221,7 +221,7 @@ const MicButton: React.FC<MicButtonProps> = ({
       networkRetryCount.current = 0
       onToggle()
     } else {
-      console.log('🎤 Starting speech recognition...')
+      console.log('Starting speech recognition...')
       manualStop.current = false
       networkRetryCount.current = 0
       setIsInitializing(false)

@@ -81,6 +81,26 @@ cd frontend
 npm run build
 ```
 
+## Tests
+
+Backend tests live in a single file: `backend/test_hokieassist.py` (pytest). **Python 3.8+** works if dependencies install cleanly; **3.10+** is still recommended for day-to-day development.
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pytest test_hokieassist.py -v
+```
+
+Each passing test also prints a line like `[OK] ... - test successfully passed` (see `backend/conftest.py`).
+
+Run everything pytest discovers under `backend/` (currently just that file):
+
+```bash
+cd backend && pytest -v
+```
+
 ## PM4 documentation
 
 - **`IMPLEMENTATION.md`** — Milestone implementation summary and AI disclosure (course requirement)

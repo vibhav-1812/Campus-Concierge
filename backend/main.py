@@ -6,6 +6,8 @@ Purpose:
 - Handles transit, dining, clubs, and general AI queries
 - Integrates NLU + external APIs (Google Maps, BT, scrapers)                                  
 """
+from typing import List, Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -37,11 +39,11 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     answer: str
-    sources: list[str]
+    sources: List[str]
 
 class BusQuery(BaseModel):
     query: str
-    origin: str | None = None
+    origin: Optional[str] = None
 
 @app.get("/")
 async def root():
