@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Chat from './components/Chat'
 import MicButton from './components/MicButton'
-import { askQuestion, getDiningStatus, getBusStatus, getClubsEvents } from './api'
+import { askQuestion } from './api'
 
 interface Message {
   id: string
@@ -152,54 +152,6 @@ function App() {
     }
   }
 
-  const handleQuickDining = async () => {
-    addMessage('Which dining halls are open right now?', 'user')
-    setIsProcessing(true)
-    try {
-      const data = await getDiningStatus()
-      addMessage(data.dining_halls, 'assistant')
-      speakText(data.dining_halls)
-    } catch {
-      const msg = 'Sorry, could not fetch dining information. Please try again.'
-      addMessage(msg, 'assistant')
-      speakText(msg)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleQuickBus = async () => {
-    addMessage('What bus routes are running now?', 'user')
-    setIsProcessing(true)
-    try {
-      const data = await getBusStatus()
-      addMessage(data.bus_times, 'assistant')
-      speakText(data.bus_times)
-    } catch {
-      const msg = 'Sorry, could not fetch bus information. Please try again.'
-      addMessage(msg, 'assistant')
-      speakText(msg)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleQuickEvents = async () => {
-    addMessage('What club events are coming up?', 'user')
-    setIsProcessing(true)
-    try {
-      const data = await getClubsEvents()
-      addMessage(data.events, 'assistant')
-      speakText(data.events)
-    } catch {
-      const msg = 'Sorry, could not fetch club events. Please try again.'
-      addMessage(msg, 'assistant')
-      speakText(msg)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-vt-maroon via-gray-900 to-vt-orange">
       {/* Header */}
@@ -333,10 +285,12 @@ function App() {
             <p className="text-sm text-gray-600 mb-3">
               Find open dining halls and meal options
             </p>
-            <button
+            <button 
               className="btn-primary text-sm"
-              onClick={handleQuickDining}
-              disabled={isProcessing}
+              onClick={() => {
+                setTextInput("Which dining halls are open?")
+                setShowTextInput(true)
+              }}
             >
               Ask About Dining
             </button>
@@ -347,10 +301,12 @@ function App() {
             <p className="text-sm text-gray-600 mb-3">
               Check bus schedules and routes
             </p>
-            <button
+            <button 
               className="btn-primary text-sm"
-              onClick={handleQuickBus}
-              disabled={isProcessing}
+              onClick={() => {
+                setTextInput("What bus routes are available?")
+                setShowTextInput(true)
+              }}
             >
               Ask About Buses
             </button>
@@ -361,10 +317,12 @@ function App() {
             <p className="text-sm text-gray-600 mb-3">
               Discover club events and activities
             </p>
-            <button
+            <button 
               className="btn-primary text-sm"
-              onClick={handleQuickEvents}
-              disabled={isProcessing}
+              onClick={() => {
+                setTextInput("What club events are coming up?")
+                setShowTextInput(true)
+              }}
             >
               Ask About Events
             </button>
