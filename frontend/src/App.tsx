@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import Chat from './components/Chat'
 import MicButton from './components/MicButton'
-import { askQuestion } from './api'
+import { Toast, useToast } from './components/Toast'
+import { askQuestion, formatApiError } from './api'
 
 interface Message {
   id: string
@@ -12,6 +13,7 @@ interface Message {
 }
 
 function App() {
+  const { toast, showToast, dismissToast } = useToast()
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -46,34 +48,37 @@ function App() {
 
   const [isSpeaking, setIsSpeaking] = useState(false)
 
-  const speakText = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      // Stop any current speech
-      window.speechSynthesis.cancel()
-      
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      utterance.pitch = 1
-      utterance.volume = 0.8
-      
-      utterance.onstart = () => {
-        console.log('AI started speaking')
-        setIsSpeaking(true)
+  const speakText = useCallback(
+    (text: string) => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+
+        const utterance = new SpeechSynthesisUtterance(text)
+        utterance.rate = 0.9
+        utterance.pitch = 1
+        utterance.volume = 0.8
+
+        utterance.onstart = () => {
+          console.log('AI started speaking')
+          setIsSpeaking(true)
+        }
+
+        utterance.onend = () => {
+          console.log('AI finished speaking')
+          setIsSpeaking(false)
+        }
+
+        utterance.onerror = () => {
+          console.log('Speech synthesis error')
+          setIsSpeaking(false)
+          showToast('Voice playback failed. You can still read the reply in the chat.', 'warning')
+        }
+
+        window.speechSynthesis.speak(utterance)
       }
-      
-      utterance.onend = () => {
-        console.log('AI finished speaking')
-        setIsSpeaking(false)
-      }
-      
-      utterance.onerror = () => {
-        console.log('Speech synthesis error')
-        setIsSpeaking(false)
-      }
-      
-      window.speechSynthesis.speak(utterance)
-    }
-  }, [])
+    },
+    [showToast]
+  )
 
   const stopSpeaking = () => {
     if ('speechSynthesis' in window) {
@@ -86,12 +91,19 @@ function App() {
   const handleVoiceInput = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return
 
-    // Don't process error messages or system messages
-    if (transcript.includes("I didn't hear anything") ||
-        transcript.includes("Microphone access") ||
-        transcript.includes("Speech recognition error") ||
-        transcript.includes("Network error") ||
-        transcript.includes("I can help you with")) {
+    // Voice/Mic feedback is delivered as synthetic transcripts — show a popup, not a chat turn
+    if (
+      transcript.includes("I didn't hear anything") ||
+      transcript.includes("Microphone access") ||
+      transcript.includes("Speech recognition error") ||
+      transcript.includes("Speech recognition is not supported") ||
+      transcript.includes("Network error") ||
+      transcript.includes("I couldn't understand what you said")
+    ) {
+      showToast(
+        transcript,
+        transcript.includes('Network error') ? 'error' : 'warning'
+      )
       return
     }
 
@@ -111,13 +123,15 @@ function App() {
 
     } catch (error) {
       console.error('Error processing question:', error)
+      const detail = formatApiError(error)
+      showToast(detail, 'error')
       const errorMessage = 'Sorry, I encountered an error processing your request. Please try again.'
       addMessage(errorMessage, 'assistant')
       speakText(errorMessage)
     } finally {
       setIsProcessing(false)
     }
-  }, [addMessage, speakText])
+  }, [addMessage, speakText, showToast])
 
   const toggleListening = useCallback(() => {
     setIsListening(prev => !prev)
@@ -144,6 +158,8 @@ function App() {
       
     } catch (error) {
       console.error('Error processing question:', error)
+      const detail = formatApiError(error)
+      showToast(detail, 'error')
       const errorMessage = 'Sorry, I encountered an error processing your request. Please try again.'
       addMessage(errorMessage, 'assistant')
       speakText(errorMessage)
@@ -154,6 +170,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-vt-maroon via-gray-900 to-vt-orange">
+      <Toast toast={toast} onDismiss={dismissToast} />
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="max-w-4xl mx-auto px-4 py-6">
