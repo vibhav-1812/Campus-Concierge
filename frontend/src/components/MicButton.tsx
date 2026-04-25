@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { Mic, MicOff, Loader } from 'lucide-react'
 
 interface MicButtonProps {
@@ -6,266 +6,150 @@ interface MicButtonProps {
   onToggle: () => void
   onTranscript: (transcript: string) => void
   disabled?: boolean
+  transcribeAudio: (blob: Blob) => Promise<string>
 }
 
-const MAX_NETWORK_RETRIES = 3
+function pickMime(): string | undefined {
+  for (const t of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) return t
+  }
+  return undefined
+}
 
 const MicButton: React.FC<MicButtonProps> = ({
   isListening,
   onToggle,
   onTranscript,
-  disabled = false
+  disabled = false,
+  transcribeAudio,
 }) => {
-  const [isSupported, setIsSupported] = useState(false)
-  const [isInitializing, setIsInitializing] = useState(false)
-  const recognitionRef = useRef<any>(null)
-  const timeoutRef = useRef<number | null>(null)
-  const isRecognitionActive = useRef(false)
-  const manualStop = useRef(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const transcribeFnRef = useRef(transcribeAudio)
+  transcribeFnRef.current = transcribeAudio
 
-  // Refs to avoid stale closures in event handlers
-  const isListeningRef = useRef(isListening)
-  const onTranscriptRef = useRef(onTranscript)
-  const onToggleRef = useRef(onToggle)
-  const networkRetryCount = useRef(0)
+  const isSupported =
+    typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
 
-  // Keep refs in sync with latest props
-  useEffect(() => { isListeningRef.current = isListening }, [isListening])
-  useEffect(() => { onTranscriptRef.current = onTranscript }, [onTranscript])
-  useEffect(() => { onToggleRef.current = onToggle }, [onToggle])
-
-  // One-time setup of the recognition instance
-  useEffect(() => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setIsSupported(false)
-      return
-    }
-
-    setIsSupported(true)
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    const instance = new SpeechRecognition()
-
-    instance.continuous = true
-    instance.interimResults = true
-    instance.lang = 'en-US'
-    instance.maxAlternatives = 1
-
-    instance.onstart = () => {
-      console.log('Speech recognition started')
-      setIsInitializing(false)
-      isRecognitionActive.current = true
-      networkRetryCount.current = 0
-    }
-
-    instance.onresult = (event: any) => {
-      let finalTranscript = ''
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + ' '
-        }
-      }
-      if (finalTranscript.trim()) {
-        ;(recognitionRef.current as any).accumulatedTranscript = finalTranscript.trim()
-      }
-    }
-
-    instance.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error)
-      setIsInitializing(false)
-      isRecognitionActive.current = false
-
-      if (event.error === 'aborted') return
-
-      if (event.error === 'network') {
-        if (isListeningRef.current && networkRetryCount.current < MAX_NETWORK_RETRIES) {
-          networkRetryCount.current++
-          const delay = networkRetryCount.current * 1500
-          console.log(`Network error — retrying in ${delay}ms (attempt ${networkRetryCount.current}/${MAX_NETWORK_RETRIES})`)
-          setTimeout(() => {
-            if (isListeningRef.current && recognitionRef.current && !isRecognitionActive.current) {
-              try {
-                setIsInitializing(true)
-                recognitionRef.current.start()
-              } catch (e) {
-                console.error('Retry failed:', e)
-                setIsInitializing(false)
-                onToggleRef.current()
-                onTranscriptRef.current('Network error. Please check your internet connection and try again.')
-              }
-            }
-          }, delay)
-          return
-        }
-
-        networkRetryCount.current = 0
-        onToggleRef.current()
-        onTranscriptRef.current('Network error: voice recognition requires an internet connection. Please check your connection and try again.')
-        return
-      }
-
-      onToggleRef.current()
-
-      if (event.error === 'no-speech') {
-        onTranscriptRef.current("I didn't hear anything. Please try speaking louder or closer to your microphone.")
-      } else if (event.error === 'audio-capture') {
-        onTranscriptRef.current('Microphone access denied. Please check your microphone permissions in your browser settings.')
-      } else if (event.error === 'not-allowed') {
-        onTranscriptRef.current('Microphone access blocked. Please allow microphone access and try again.')
-      } else {
-        onTranscriptRef.current(`Speech recognition error: ${event.error}. Please try the text input option instead.`)
-      }
-    }
-
-    instance.onend = () => {
-      console.log('Speech recognition ended')
-      setIsInitializing(false)
-      isRecognitionActive.current = false
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-
-      if (manualStop.current) {
-        const accumulatedText = (recognitionRef.current as any)?.accumulatedTranscript || ''
-        if (accumulatedText.trim()) {
-          console.log('Sending transcript:', accumulatedText)
-          onTranscriptRef.current(accumulatedText.trim())
-          ;(recognitionRef.current as any).accumulatedTranscript = ''
-        } else {
-          onTranscriptRef.current("I didn't hear anything. Please try speaking again.")
-        }
-        manualStop.current = false
-      } else if (isListeningRef.current) {
-        // Browser timed out naturally — restart for continuous recording
-        console.log('Restarting recognition for continuous recording')
-        setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current && !isRecognitionActive.current && !manualStop.current) {
-            try {
-              recognitionRef.current.start()
-            } catch (e) {
-              console.log('Could not restart recognition:', e)
-            }
-          }
-        }, 100)
-      }
-    }
-
-    instance.onnomatch = () => {
-      console.log('No speech recognized')
-      isRecognitionActive.current = false
-      onTranscriptRef.current("I couldn't understand what you said. Please try speaking more clearly.")
-      onToggleRef.current()
-    }
-
-    recognitionRef.current = instance
-
-    return () => {
-      try { instance.abort() } catch (_) {}
-      isRecognitionActive.current = false
-    }
-  }, []) // Run once on mount only
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
+  const stopStream = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+    mediaStreamRef.current = null
   }, [])
 
-  // Start/stop recognition in response to isListening changes
-  useEffect(() => {
-    if (isListening && isSupported && !isInitializing && !isRecognitionActive.current) {
-      console.log('Starting speech recognition...')
-      setIsInitializing(true)
-      try {
-        recognitionRef.current?.start()
-      } catch (error) {
-        console.error('Error starting speech recognition:', error)
-        setIsInitializing(false)
-        onToggle()
-      }
-    } else if (!isListening && isSupported && isRecognitionActive.current) {
-      console.log('Stopping speech recognition...')
-      try {
-        recognitionRef.current?.stop()
-      } catch (error) {
-        console.error('Error stopping speech recognition:', error)
-      }
-    }
-  }, [isListening, isSupported, isInitializing, onToggle])
-
-  const handleClick = () => {
-    if (!isSupported) {
-      onTranscript('Speech recognition is not supported in your browser. Please try Chrome or Edge.')
-      return
-    }
-    if (disabled) return
+  const handleClick = async () => {
+    if (disabled || isTranscribing) return
 
     if (isListening) {
-      console.log('Manually stopping speech recognition...')
-      manualStop.current = true
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
+      const rec = recorderRef.current
+      if (rec && rec.state === 'recording') {
+        setIsTranscribing(true)
+        if (typeof rec.requestData === 'function') {
+          try {
+            rec.requestData()
+          } catch {
+            /* ignore */
+          }
+        }
+        rec.stop()
+      } else {
+        stopStream()
       }
-
-      if (recognitionRef.current && isRecognitionActive.current) {
-        recognitionRef.current.stop()
-      }
-
-      setIsInitializing(false)
-      isRecognitionActive.current = false
-      networkRetryCount.current = 0
       onToggle()
-    } else {
-      console.log('Starting speech recognition...')
-      manualStop.current = false
-      networkRetryCount.current = 0
-      setIsInitializing(false)
-      isRecognitionActive.current = false
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-
-      if (recognitionRef.current) {
-        ;(recognitionRef.current as any).accumulatedTranscript = ''
-      }
-
-      onToggle()
+      return
     }
+
+    if (!isSupported) {
+      onTranscript('Recording is not supported in this browser. Use Chrome or Edge.')
+      return
+    }
+
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      })
+    } catch (err: unknown) {
+      const name = err instanceof DOMException ? err.name : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        onTranscript('Microphone permission denied. Allow the mic and try again.')
+      } else if (name === 'NotFoundError') {
+        onTranscript('No microphone found. Connect one or use text input.')
+      } else {
+        onTranscript(`Could not open microphone (${name || 'unknown error'}).`)
+      }
+      return
+    }
+
+    mediaStreamRef.current = stream
+    const mime = pickMime()
+    const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+    const chunks: Blob[] = []
+
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data)
+    }
+
+    rec.onstop = async () => {
+      recorderRef.current = null
+      stopStream()
+      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' })
+      if (blob.size < 100) {
+        setIsTranscribing(false)
+        onTranscript("Recording was too short. Hold the mic button and speak, then click again to stop.")
+        return
+      }
+      try {
+        const text = await transcribeFnRef.current(blob)
+        if (text.trim()) {
+          onTranscript(text.trim())
+        } else {
+          onTranscript("Didn't catch anything. Try speaking louder or closer to the mic.")
+        }
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : 'Unknown error'
+        onTranscript(
+          detail.startsWith('Could not') || detail.includes('ffmpeg')
+            ? detail
+            : `Transcription failed: ${detail}`
+        )
+      } finally {
+        setIsTranscribing(false)
+      }
+    }
+
+    recorderRef.current = rec
+    rec.start(250)
+    onToggle()
   }
 
+  const busy = disabled || isTranscribing
   const getButtonClass = () => {
-    if (disabled) return 'mic-button bg-gray-400 cursor-not-allowed'
-    if (isInitializing) return 'mic-button bg-yellow-500 hover:bg-yellow-600 text-white animate-pulse'
+    if (busy) return 'mic-button bg-gray-400 cursor-not-allowed'
+    if (isTranscribing) return 'mic-button bg-yellow-500 text-white animate-pulse'
     if (isListening) return 'mic-button-listening'
     return 'mic-button-idle'
   }
 
   const getIcon = () => {
-    if (disabled) return <MicOff size={24} />
-    if (isInitializing) return <Loader size={24} className="animate-spin" />
+    if (isTranscribing) return <Loader size={24} className="animate-spin" />
+    if (busy) return <MicOff size={24} />
     return isListening ? <MicOff size={24} /> : <Mic size={24} />
   }
 
   const getStatusText = () => {
     if (!isSupported) return 'Not Supported'
+    if (isTranscribing) return 'Transcribing...'
     if (disabled) return 'Processing...'
-    if (isInitializing) return 'Starting...'
-    if (isListening) return 'Click to Stop Recording'
-    return 'Click to Start Recording'
+    if (isListening) return 'Click to Stop & Send'
+    return 'Click to Record'
   }
 
   return (
     <div className="flex flex-col items-center space-y-3">
       <button
         onClick={handleClick}
-        disabled={disabled}
+        disabled={busy}
         className={getButtonClass()}
         title={getStatusText()}
       >
@@ -273,23 +157,19 @@ const MicButton: React.FC<MicButtonProps> = ({
       </button>
 
       <div className="text-center">
-        <p className="text-sm font-medium text-gray-700">
-          {getStatusText()}
-        </p>
+        <p className="text-sm font-medium text-gray-700">{getStatusText()}</p>
         {!isSupported && (
-          <p className="text-xs text-red-600 mt-1">
-            Use Chrome or Edge for voice support
-          </p>
+          <p className="text-xs text-red-600 mt-1">Use Chrome or Edge for voice support</p>
         )}
       </div>
 
       {isListening && (
         <div className="flex space-x-1">
-          <div className="w-1 h-8 bg-red-500 rounded-full animate-pulse"></div>
-          <div className="w-1 h-6 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-          <div className="w-1 h-10 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-          <div className="w-1 h-6 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
-          <div className="w-1 h-8 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.8s' }}></div>
+          <div className="w-1 h-8 bg-red-500 rounded-full animate-pulse" />
+          <div className="w-1 h-6 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+          <div className="w-1 h-10 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+          <div className="w-1 h-6 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }} />
+          <div className="w-1 h-8 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.8s' }} />
         </div>
       )}
     </div>

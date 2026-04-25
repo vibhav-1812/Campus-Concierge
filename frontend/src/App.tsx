@@ -2,13 +2,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import Chat from './components/Chat'
 import MicButton from './components/MicButton'
-import { askQuestion } from './api'
+import { askQuestion, transcribeAudio } from './api'
 
 interface Message {
   id: string
   text: string
   sender: 'user' | 'assistant'
   timestamp: Date
+}
+
+let _messageIdSeq = 0
+
+function createMessageId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  _messageIdSeq += 1
+  return `${Date.now()}-${_messageIdSeq}-${Math.random().toString(36).slice(2, 11)}`
 }
 
 function App() {
@@ -36,7 +46,7 @@ function App() {
 
   const addMessage = useCallback((text: string, sender: 'user' | 'assistant') => {
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: createMessageId(),
       text,
       sender,
       timestamp: new Date()
@@ -86,12 +96,13 @@ function App() {
   const handleVoiceInput = useCallback(async (transcript: string) => {
     if (!transcript.trim()) return
 
-    // Don't process error messages or system messages
-    if (transcript.includes("I didn't hear anything") ||
-        transcript.includes("Microphone access") ||
-        transcript.includes("Speech recognition error") ||
-        transcript.includes("Network error") ||
-        transcript.includes("I can help you with")) {
+    const isVoiceSystemMessage =
+      /I didn't|Didn't catch|microphone|Could not|Recording is not|too short|Transcription failed|ffmpeg|Google speech|OPENAI_API_KEY|Cannot reach the API/i.test(
+        transcript
+      )
+
+    if (isVoiceSystemMessage) {
+      addMessage(transcript, 'assistant')
       return
     }
 
@@ -206,6 +217,7 @@ function App() {
                 onToggle={toggleListening}
                 onTranscript={handleVoiceInput}
                 disabled={isProcessing}
+                transcribeAudio={transcribeAudio}
               />
 
               {/* Stop Speaking Button - Only show when AI is speaking */}
@@ -229,8 +241,6 @@ function App() {
               
               <div className="text-xs text-gray-500 text-center max-w-sm mb-4">
                 Try asking: "Which dining halls are open?" or "What bus routes are available?"
-                <br />
-                <span className="text-red-500">If voice doesn't work, check browser console (F12) for errors</span>
               </div>
 
               {/* Text Input Fallback */}

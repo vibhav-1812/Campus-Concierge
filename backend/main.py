@@ -6,9 +6,13 @@ Purpose:
 - Handles transit, dining, clubs, and general AI queries
 - Integrates NLU + external APIs (Google Maps, BT, scrapers)                                  
 """
+import io
+import shutil
+import subprocess
+import tempfile
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -52,8 +56,124 @@ async def root():
     return {
         "message": "HokieAssist API is running.",
         "google_maps_key": google_key_status,
-        "nvidia_nim_key": nvidia_key_status
+        "nvidia_nim_key": nvidia_key_status,
     }
+
+
+def _transcribe_with_google(audio_bytes: bytes) -> str:
+    """Free Google Speech Recognition via the SpeechRecognition library (no API key needed)."""
+    import speech_recognition as sr
+
+    recognizer = sr.Recognizer()
+    recognizer.dynamic_energy_threshold = True
+    audio_file = io.BytesIO(audio_bytes)
+    with sr.AudioFile(audio_file) as source:
+        audio_data = recognizer.record(source)
+    try:
+        return str(recognizer.recognize_google(audio_data))
+    except sr.UnknownValueError:
+        return ""
+    except sr.RequestError as e:
+        raise RuntimeError(
+            f"Could not reach Google speech service from the server ({e}). "
+            "Check server internet access or set a real OPENAI_API_KEY for Whisper."
+        ) from e
+
+
+def _transcribe_with_openai(audio_bytes: bytes, filename: str) -> str:
+    """OpenAI Whisper transcription (requires OPENAI_API_KEY)."""
+    from openai import OpenAI
+
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    client = OpenAI(api_key=api_key)
+    buf = io.BytesIO(audio_bytes)
+    buf.name = filename
+    result = client.audio.transcriptions.create(model="whisper-1", file=buf)
+    return (getattr(result, "text", None) or "").strip()
+
+
+def _convert_webm_to_wav(raw: bytes) -> bytes:
+    """Convert browser-recorded audio (webm/opus, mp4, etc.) to 16 kHz mono WAV for SpeechRecognition."""
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        raise RuntimeError(
+            "ffmpeg is not installed or not on PATH. Install it (e.g. brew install ffmpeg) and restart the backend."
+        )
+
+    fd_in, tmp_in_path = tempfile.mkstemp(suffix=".webm")
+    fd_out, tmp_out_path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd_in)
+    os.close(fd_out)
+    try:
+        with open(tmp_in_path, "wb") as f:
+            f.write(raw)
+        proc = subprocess.run(
+            [
+                ffmpeg_bin,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                tmp_in_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-f",
+                "wav",
+                tmp_out_path,
+            ],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        if proc.returncode != 0:
+            err = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
+            raise RuntimeError(err or f"ffmpeg exited with code {proc.returncode}")
+        with open(tmp_out_path, "rb") as f:
+            return f.read()
+    finally:
+        for p in (tmp_in_path, tmp_out_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+@app.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """
+    Speech-to-text endpoint. Uses OpenAI Whisper if OPENAI_API_KEY is set, otherwise falls back to
+    free Google Speech Recognition via the SpeechRecognition library (no key needed).
+    """
+    raw = await file.read()
+    if len(raw) < 64:
+        raise HTTPException(status_code=400, detail="Audio clip is empty or too short.")
+
+    openai_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    has_openai = openai_key and openai_key != "your-openai-api-key-here"
+
+    if has_openai:
+        try:
+            text = _transcribe_with_openai(raw, file.filename or "speech.webm")
+            return {"text": text}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"OpenAI transcription failed: {e}")
+
+    try:
+        wav_bytes = _convert_webm_to_wav(raw)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Audio conversion failed (install ffmpeg and ensure it is on PATH): {e}",
+        )
+
+    try:
+        text = _transcribe_with_google(wav_bytes)
+        return {"text": text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Google speech recognition failed: {e}")
 
 @app.get("/debug/parse/{query}")
 async def debug_parse(query: str):
