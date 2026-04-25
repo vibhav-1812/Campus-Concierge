@@ -2,6 +2,33 @@ import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+/** Turn axios / unknown errors into a short user-facing string */
+export function formatApiError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      return 'Cannot reach the server. Start the backend (port 8000) or check your network.'
+    }
+    const data = error.response?.data as { detail?: unknown } | undefined
+    const detail = data?.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) {
+      const parts = detail
+        .map((d: { msg?: string }) => (typeof d?.msg === 'string' ? d.msg : null))
+        .filter(Boolean) as string[]
+      if (parts.length) return parts.join(' ')
+    }
+    const status = error.response?.status
+    if (status === 404) return 'That service was not found.'
+    if (status === 429) return 'Too many requests. Please wait a moment and try again.'
+    if (status != null && status >= 500) {
+      return 'The server had a problem. Please try again in a moment.'
+    }
+    if (status != null) return `Request failed (${status}). Please try again.`
+  }
+  if (error instanceof Error && error.message) return error.message
+  return 'Something went wrong. Please try again.'
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -35,7 +62,7 @@ export const askQuestion = async (query: string): Promise<QueryResponse> => {
     return response.data
   } catch (error) {
     console.error('Error asking question:', error)
-    throw new Error('Failed to get response from AI assistant')
+    throw new Error(formatApiError(error))
   }
 }
 
