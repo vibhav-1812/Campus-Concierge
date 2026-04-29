@@ -134,25 +134,19 @@ function App() {
     setIsListening(prev => !prev)
   }, [])
 
-  const handleTextSubmit = async () => {
-    if (!textInput.trim()) return
+  const sendQuery = useCallback(async (query: string) => {
+    const q = query.trim()
+    if (!q) return
 
-    // Add user message
-    addMessage(textInput, 'user')
+    addMessage(q, 'user')
     setIsProcessing(true)
     setShowTextInput(false)
     setTextInput('')
 
     try {
-      // Send to backend
-      const response = await askQuestion(textInput)
-      
-      // Add assistant response
+      const response = await askQuestion(q)
       addMessage(response.answer, 'assistant')
-      
-      // Speak the response
       speakText(response.answer)
-      
     } catch (error) {
       console.error('Error processing question:', error)
       const errorMessage = 'Sorry, I encountered an error processing your request. Please try again.'
@@ -161,7 +155,9 @@ function App() {
     } finally {
       setIsProcessing(false)
     }
-  }
+  }, [addMessage, speakText])
+
+  const handleTextSubmit = () => sendQuery(textInput)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-vt-maroon via-gray-900 to-vt-orange">
@@ -178,11 +174,38 @@ function App() {
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-right text-white/80">
-                <div className="text-sm">Status</div>
-                <div className="text-xs">
-                  {isSpeaking ? 'AI Speaking...' : isListening ? 'Listening...' : isProcessing ? 'Thinking...' : 'Ready'}
-                </div>
+              {/* Status pill — colored dot + label so the current state is glanceable */}
+              <div
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border text-xs font-medium ${
+                  isSpeaking
+                    ? 'bg-blue-500/20 border-blue-300/40 text-blue-100'
+                    : isListening
+                    ? 'bg-red-500/20 border-red-300/40 text-red-100'
+                    : isProcessing
+                    ? 'bg-yellow-500/20 border-yellow-300/40 text-yellow-100'
+                    : 'bg-green-500/20 border-green-300/40 text-green-100'
+                }`}
+              >
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${
+                    isSpeaking
+                      ? 'bg-blue-300 animate-pulse'
+                      : isListening
+                      ? 'bg-red-400 animate-pulse'
+                      : isProcessing
+                      ? 'bg-yellow-300 animate-pulse'
+                      : 'bg-green-400'
+                  }`}
+                ></span>
+                <span>
+                  {isSpeaking
+                    ? 'AI Speaking'
+                    : isListening
+                    ? 'Listening'
+                    : isProcessing
+                    ? 'Thinking'
+                    : 'Ready'}
+                </span>
               </div>
             </div>
           </div>
@@ -288,55 +311,46 @@ function App() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — clicking a card sends the question right away */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <h3 className="font-semibold text-gray-800 mb-2">Dining</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Find open dining halls and meal options
-            </p>
-            <button 
-              className="btn-primary text-sm"
-              onClick={() => {
-                setTextInput("Which dining halls are open?")
-                setShowTextInput(true)
-              }}
+          {[
+            {
+              icon: '🍽️',
+              title: 'Dining',
+              desc: 'Find open dining halls and meal options',
+              query: 'Which dining halls are open?',
+            },
+            {
+              icon: '🚌',
+              title: 'Transportation',
+              desc: 'Check bus schedules and routes',
+              query: 'What bus routes are available?',
+            },
+            {
+              icon: '🎉',
+              title: 'Events',
+              desc: 'Discover club events and activities',
+              query: 'What club events are coming up?',
+            },
+          ].map((card) => (
+            <button
+              key={card.title}
+              type="button"
+              onClick={() => sendQuery(card.query)}
+              disabled={isProcessing}
+              className="text-left bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg
+                         transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl
+                         focus:outline-none focus:ring-2 focus:ring-vt-orange
+                         disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
-              Ask About Dining
+              <div className="text-2xl mb-2">{card.icon}</div>
+              <h3 className="font-semibold text-gray-800 mb-1">{card.title}</h3>
+              <p className="text-sm text-gray-600 mb-3">{card.desc}</p>
+              <span className="text-sm font-medium text-vt-orange">
+                Ask now →
+              </span>
             </button>
-          </div>
-          
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <h3 className="font-semibold text-gray-800 mb-2">Transportation</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Check bus schedules and routes
-            </p>
-            <button 
-              className="btn-primary text-sm"
-              onClick={() => {
-                setTextInput("What bus routes are available?")
-                setShowTextInput(true)
-              }}
-            >
-              Ask About Buses
-            </button>
-          </div>
-          
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-            <h3 className="font-semibold text-gray-800 mb-2">Events</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Discover club events and activities
-            </p>
-            <button 
-              className="btn-primary text-sm"
-              onClick={() => {
-                setTextInput("What club events are coming up?")
-                setShowTextInput(true)
-              }}
-            >
-              Ask About Events
-            </button>
-          </div>
+          ))}
         </div>
       </main>
 
